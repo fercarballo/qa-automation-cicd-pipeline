@@ -1,10 +1,10 @@
-# Guía de Aprendizaje — Pipeline CI/CD con GitHub Actions
+# Documentación Técnica — Pipeline CI/CD con GitHub Actions
 
-> Este documento explica **qué** construimos, **por qué** cada decisión, **qué alternativas** existían y sus **pros y contras**. Es el Proyecto 3 del portfolio: acá el protagonista ya no es el código de tests, sino la **orquestación** — cómo se ejecutan de forma automática, rápida y confiable.
+> Documentación de referencia del diseño, las decisiones técnicas y el funcionamiento del proyecto, incluyendo las alternativas evaluadas con sus ventajas y desventajas.
 
 ## Índice
 
-1. [Cómo usar esta guía](#1-cómo-usar-esta-guía)
+1. [Alcance](#1-alcance)
 2. [Qué es CI/CD y por qué es clave en QA](#2-qué-es-cicd-y-por-qué-es-clave-en-qa)
 3. [Anatomía de un workflow de GitHub Actions](#3-anatomía-de-un-workflow-de-github-actions)
 4. [La estrategia de dos velocidades](#4-la-estrategia-de-dos-velocidades)
@@ -21,17 +21,17 @@
 15. [Caché y npm ci vs npm install](#15-caché-y-npm-ci-vs-npm-install)
 16. [UI + API en un mismo pipeline](#16-ui--api-en-un-mismo-pipeline)
 17. [Buenas prácticas y costos](#17-buenas-prácticas-y-costos)
-18. [Ejercicios para practicar](#18-ejercicios-para-practicar)
+18. [Extensiones sugeridas](#18-extensiones-sugeridas)
 19. [Glosario](#19-glosario)
 20. [Próximos pasos](#20-próximos-pasos)
 
 ---
 
-## 1. Cómo usar esta guía
+## 1. Alcance
 
 En los Proyectos 1 (UI) y 2 (API) construimos suites de tests. Pero una suite que hay que correr **a mano** en tu máquina aporta la mitad del valor. El salto de nivel es que corra **sola**, en cada cambio, en un servidor, actuando como red de seguridad antes de que el código llegue a producción. Eso es **CI/CD**, y es de lo más valorado en un perfil de automation senior.
 
-Este proyecto trae una suite chica y combinada (UI + API, reutilizando lo aprendido) y le construye encima un **pipeline de nivel profesional** con **GitHub Actions**. El código de tests es el "material de trabajo"; lo que estudiamos acá es cómo se orquesta.
+Este proyecto trae una suite chica y combinada (UI + API, reutilizando componentes ya probados) y le construye encima un **pipeline de nivel profesional** con **GitHub Actions**. el foco de este proyecto es cómo se orquesta.
 
 ---
 
@@ -46,8 +46,6 @@ Sin CI, tu suite depende de que alguien se acuerde de correrla. Con CI:
 - **Ningún cambio llega a main sin pasar por los tests.** El pipeline es un portero automático.
 - **El feedback es inmediato:** el desarrollador se entera de que rompió algo en minutos, cuando el contexto está fresco y arreglarlo es barato.
 - **La calidad se vuelve responsabilidad de todo el equipo,** no una etapa manual al final.
-
-> **Frase para la entrevista:** "automatizar tests sin CI es media automatización". El valor de una suite se multiplica cuando corre sola en cada cambio. Un QA Sr no solo escribe tests: los integra al flujo de desarrollo.
 
 ---
 
@@ -375,7 +373,7 @@ Resumen de las decisiones y por qué:
 
 ---
 
-## 18. Ejercicios para practicar
+## 18. Extensiones sugeridas
 
 1. **Rompé un test a propósito** y abrí un PR: mirá cómo PR Checks se pone en rojo y bloquea el merge. Después arreglalo y velo pasar a verde.
 2. **Agregá un input a `workflow_dispatch`** para elegir cuántos shards usar, y usalo en la matriz.
@@ -418,6 +416,3 @@ Con los Proyectos 1, 2 y 3 ya tenés la historia completa: **escribís tests (UI
 - **Proyecto 4 — Estabilidad y flakiness:** el tema más senior. Este pipeline es la base perfecta: crear inestabilidad a propósito, verla fallar en CI, medir la tasa de flakiness y eliminarla. Acá se conectan los reintentos, el trace y las métricas de salud de la suite.
 - **Proyecto 5 — Visual regression + contract testing (Pact):** capas avanzadas que se integran a este mismo pipeline.
 
-**Cómo contarlo en una entrevista (problema → decisión → resultado):** *"Construí un pipeline de CI/CD en GitHub Actions para una suite de UI + API (decisión). El objetivo era feedback rápido en cada PR sin sacrificar cobertura (problema). Lo resolví con una estrategia de dos velocidades: quality gates + smoke bloqueante en el PR (segundos), y una regresión nocturna cross-browser con sharding en 3 y merge de reportes (resultado). El pipeline cancela runs redundantes, instala solo lo necesario en cada etapa y notifica ante fallos."*
-
-Y, como siempre: **lo construiste vos y entendés cada línea del YAML.** Eso es lo que te posiciona de verdad.
