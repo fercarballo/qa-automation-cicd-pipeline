@@ -377,7 +377,7 @@ Resumen de las decisiones y por qué:
 
 1. **Rompé un test a propósito** y abrí un PR: mirá cómo PR Checks se pone en rojo y bloquea el merge. Después arreglalo y velo pasar a verde.
 2. **Agregá un input a `workflow_dispatch`** para elegir cuántos shards usar, y usalo en la matriz.
-3. **Agregá un job de `deploy` (simulado)** que dependa del smoke con `needs`, para practicar la parte "CD".
+3. **Agregar un job de `deploy` (simulado)** que dependa del smoke con `needs`, para cubrir la parte de "CD" del pipeline.
 4. **Configurá un secret** (por ejemplo `SLACK_WEBHOOK_URL` de prueba) y activá la notificación a Slack.
 5. **Cambiá el cron** para que corra dos veces al día e interpretá la sintaxis.
 6. **Agregá un badge** de un tercer estado al README y entendé cómo se arma la URL del badge.
