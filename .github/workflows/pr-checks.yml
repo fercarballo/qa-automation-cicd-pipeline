@@ -1,0 +1,79 @@
+# ═════════════════════════════════════════════════════════════════════════════
+# WORKFLOW 1 — Checks de Pull Request (rápido y BLOQUEANTE).
+#
+# Objetivo: dar feedback veloz en cada PR/push a main. Solo corre lo esencial
+# (quality gates + smoke), para no hacer esperar al desarrollador. La regresión
+# completa y lenta vive en el otro workflow (nightly-regression.yml).
+#
+# Estructura en 2 etapas (jobs encadenados con `needs`):
+#   1. quality-gates → lint + typecheck (segundos, sin navegador)
+#   2. smoke         → solo si pasaron los gates; tests @smoke en Chromium + API
+# ═════════════════════════════════════════════════════════════════════════════
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Si llega un push nuevo al mismo branch, cancela el run anterior en curso.
+# Ahorra minutos de CI y da siempre el resultado del último commit.
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gates:
+    name: Quality Gates (lint + typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: ESLint (análisis estático)
+        run: npm run lint
+
+      - name: TypeScript (verificación de tipos)
+        run: npm run typecheck
+
+  smoke:
+    name: Smoke tests (Chromium + API)
+    # El smoke SOLO corre si los quality gates pasaron: no gastamos tiempo de
+    # navegador si el código ni siquiera compila o tiene errores de lint.
+    needs: quality-gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # Solo Chromium: el smoke no necesita cross-browser (eso es de la nocturna).
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar smoke (bloqueante)
+        run: npm run test:pr
+
+      - name: Subir reporte HTML
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report
+          path: playwright-report/
+          retention-days: 7

@@ -1,0 +1,116 @@
+# ═════════════════════════════════════════════════════════════════════════════
+# WORKFLOW 2 — Regresión nocturna (completa, lenta, NO bloquea a nadie).
+#
+# Objetivo: correr TODA la suite (los 3 navegadores + API) una vez por día y
+# a demanda. Como es pesada, la sacamos del camino de los PRs.
+#
+# Técnicas de nivel Sr que demuestra:
+#   - `schedule` (cron): corre sola cada noche.
+#   - `workflow_dispatch`: se puede disparar a mano desde la pestaña Actions.
+#   - matriz + SHARDING: parte la suite en 3 y la corre en paralelo (más rápido).
+#   - merge de reportes: junta los 3 reportes parciales (blob) en un HTML único.
+#   - job de NOTIFICACIÓN: avisa si la regresión falló.
+# ═════════════════════════════════════════════════════════════════════════════
+name: Nightly Regression
+
+on:
+  schedule:
+    # 03:00 UTC todos los días (sintaxis cron: min hora día mes día-semana).
+    - cron: '0 3 * * *'
+  # Permite ejecutarlo manualmente desde la UI de GitHub Actions (botón "Run workflow").
+  workflow_dispatch:
+
+jobs:
+  regression:
+    name: Regresión (shard ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      # Si un shard falla, NO cancelamos los demás: queremos ver todos los fallos.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # Todos los navegadores: la nocturna sí corre cross-browser completo.
+      - name: Instalar navegadores
+        run: npx playwright install --with-deps
+
+      # SHARDING: cada job corre 1/3 de los tests. El reporter 'blob' produce un
+      # reporte parcial que después se mergea. Sobrescribe el reporter del config.
+      - name: Ejecutar regresión (shard ${{ matrix.shard }}/3)
+        run: npx playwright test --reporter=blob --shard=${{ matrix.shard }}/3
+
+      - name: Subir el blob report de este shard
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 1
+
+  merge-report:
+    name: Mergear reportes en uno solo
+    # Corre aunque algún shard haya fallado, para tener el reporte igual.
+    if: ${{ !cancelled() }}
+    needs: [regression]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Descargar los blob reports de todos los shards
+        uses: actions/download-artifact@v4
+        with:
+          path: all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Mergear los blobs en un reporte HTML único
+        run: npx playwright merge-reports --reporter=html ./all-blob-reports
+
+      - name: Subir el reporte HTML combinado
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report
+          path: playwright-report/
+          retention-days: 14
+
+  notify:
+    name: Notificar si la regresión falló
+    needs: [regression]
+    # Solo corre si algún shard de la regresión falló.
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Escribir resumen del fallo
+        run: |
+          echo "### ❌ La regresión nocturna falló" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Descargá el artifact **html-report** de este run para ver el detalle." >> "$GITHUB_STEP_SUMMARY"
+          # ─── En un proyecto real, acá iría una notificación a un canal ───
+          # Por ejemplo, a Slack (requiere el secret SLACK_WEBHOOK_URL):
+          #
+          #   - name: Avisar a Slack
+          #     uses: slackapi/slack-github-action@v1.27.0
+          #     with:
+          #       payload: '{"text":"❌ Regresión nocturna falló: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}'
+          #     env:
+          #       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
