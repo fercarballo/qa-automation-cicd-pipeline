@@ -33,11 +33,13 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
+      # Reintento ante errores de red transitorios (ej: ECONNRESET del registry).
+      # La infraestructura falla a veces; un pipeline robusto lo absorbe.
       - name: Instalar dependencias
-        run: npm ci
+        run: npm ci || (sleep 10 && npm ci) || (sleep 20 && npm ci)
 
       - name: ESLint (análisis estático)
         run: npm run lint
@@ -57,15 +59,17 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
+      # Reintento ante errores de red transitorios (ej: ECONNRESET del registry).
+      # La infraestructura falla a veces; un pipeline robusto lo absorbe.
       - name: Instalar dependencias
-        run: npm ci
+        run: npm ci || (sleep 10 && npm ci) || (sleep 20 && npm ci)
 
       # Solo Chromium: el smoke no necesita cross-browser (eso es de la nocturna).
       - name: Instalar Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium || (sleep 10 && npx playwright install --with-deps chromium)
 
       - name: Ejecutar smoke (bloqueante)
         run: npm run test:pr
